@@ -9,5 +9,6 @@ class ArticleAnalyser extends Actor {
   override def receive: Receive =  {
     //TODO
     case Analyse(hyperText) =>
+      println(hyperText)
   }
 }
