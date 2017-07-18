@@ -9,6 +9,6 @@ class Supervisor(system: ActorSystem) extends Actor {
 
   override def receive: Receive = {
     case Start(sites) =>
-      sites.foreach(x => x._1 ! ProcessArticles(x._2))
+      sites.foreach(_ ! ExtractArticles())
   }
 }

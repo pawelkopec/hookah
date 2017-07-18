@@ -11,7 +11,7 @@ object Main extends App {
   val supervisor = system.actorOf(Props(new Supervisor(system)))
 
   val sites = List(
-    (system.actorOf(Props(new HuffingtonScraper(analyser))), "http://www.huffingtonpost.com")
+    (system.actorOf(Props(new HuffingtonScraper(analyser))))
   )
 
   supervisor ! Start(sites)
