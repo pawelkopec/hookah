@@ -13,6 +13,7 @@ libraryDependencies ++= {
   Seq(
     "com.typesafe.akka" %% "akka-actor" % akkaV,
     "com.typesafe.akka" %% "akka-stream" % akkaV,
-    "org.jsoup" % "jsoup" % "1.8+"
+    "org.jsoup" % "jsoup" % "1.8+",
+    "net.sourceforge.htmlunit" % "htmlunit" % "2.27"
   )
 }
