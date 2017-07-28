@@ -5,6 +5,5 @@ package core
   */
 class Article(val title: String, val content: String) {
   override def toString: String =
-    "\"" + title.substring(0, Math.min(20, title.length)) + "...\": " +
-      content.substring(0, Math.min(20, content.length)) + "..."
+    "\"" + title.substring(0, Math.min(30, title.length)) + "...\""
 }

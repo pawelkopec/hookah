@@ -8,7 +8,7 @@ import core.Scraper
   */
 class HuffingtonScraper(analyser: ActorRef) extends Scraper(analyser) {
 
-  def url =
+  def startUrl =
     "http://www.huffingtonpost.com"
 
   def linkSelector: String =

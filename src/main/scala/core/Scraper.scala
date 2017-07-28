@@ -4,8 +4,8 @@ import java.net.UnknownHostException
 import java.util.logging.{Level, Logger}
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import com.gargoylesoftware.htmlunit.html.{DomNode, HtmlAnchor, HtmlPage}
-import com.gargoylesoftware.htmlunit.{BrowserVersion, WebClient}
+import com.gargoylesoftware.htmlunit.html.{DomNode, HtmlAnchor}
+import com.gargoylesoftware.htmlunit.{BrowserVersion, SgmlPage, WebClient}
 import org.apache.commons.logging.LogFactory
 
 import scala.collection.JavaConverters
@@ -19,27 +19,31 @@ abstract class Scraper(analyser: ActorRef) extends Actor with Scrape with ActorL
   Logger.getLogger("com.gargoylesoftware.htmlunit").setLevel(Level.OFF)
   Logger.getLogger("org.apache.commons.httpclient").setLevel(Level.OFF)
 
+  var maxArticlesPerSite = 6
+
   override def receive: Receive = {
     case ExtractArticles() =>
-      val htmlPage = getPage(url, 5000)
-      if (htmlPage != null)
-        extractLinks(htmlPage)
-          .par
-          .map(getPage(_, 3000))
-          .map(extractArticle)
+      val startingPage = getPage(startUrl, 3000)
+      if (startingPage != null)
+        extractLinks(startingPage)
+          .take(maxArticlesPerSite)
+          .par.map(getPage(_, 3000))
+          .seq.map(extractArticle)
           .foreach(analyser ! Analyse(_))
   }
 
   //TODO handle network errors and timeouts
-  def getPage(url: String, scriptWaitingTime: Long = 0): HtmlPage = {
+  def getPage(url: String, scriptWaitingTime: Long = 0): SgmlPage = {
     try {
       val client = getClient
 
-      log.info("Connecting to " + url)
-      val htmlPage: HtmlPage = client.getPage(url)
+      log.info("Requesting " + url)
+      val htmlPage: SgmlPage = client.getPage(url)
+      log.info("Received " + url)
 
-      log.info("Waiting for Javascript in " + url)
+      log.info("Waiting for Javascript on " + url)
       client.waitForBackgroundJavaScript(scriptWaitingTime)
+      log.info("Javascript loaded on " + url)
       htmlPage
     }
     catch {
@@ -50,17 +54,23 @@ abstract class Scraper(analyser: ActorRef) extends Actor with Scrape with ActorL
   }
 
   def getClient: WebClient = {
-    val client = new WebClient(BrowserVersion.CHROME)
-    client.setJavaScriptTimeout(500)
-    client.getOptions.setThrowExceptionOnScriptError(false)
-    client.getOptions.setThrowExceptionOnFailingStatusCode(false)
+    val client = new WebClient(BrowserVersion.FIREFOX_52)
+    val options = client.getOptions
+    options.setThrowExceptionOnScriptError(false)
+    options.setThrowExceptionOnFailingStatusCode(false)
+    options.setCssEnabled(false)
+    options.setTimeout(5000)
+    client.getCache.setMaxSize(0)
     client
   }
 
-  def extractLinks(htmlPage: HtmlPage): List[String] = {
-    log.info("Extracting links from " + url)
+  def extractLinks(page: SgmlPage): List[String] = {
+    log.info("Extracting links from " + startUrl)
 
-    val links = htmlPage.querySelectorAll(linkSelector)
+    val links = page.querySelectorAll(linkSelector)
+    if (links.getLength == 0)
+      log.error("No links found on " + page.getUrl)
+
     JavaConverters.asScalaBuffer(links)
       .toList
       .filter(x => x.isInstanceOf[HtmlAnchor])
@@ -70,11 +80,16 @@ abstract class Scraper(analyser: ActorRef) extends Actor with Scrape with ActorL
       .distinct
   }
 
-  def extractArticle(htmlPage: HtmlPage): Article = {
-    log.info("Extracting article from " + htmlPage.getBaseURL)
+  def extractArticle(page: SgmlPage): Article = {
+    log.info("Extracting article from " + page.getUrl)
 
-    val title: DomNode = htmlPage.querySelector(titleSelector)
-    val content: DomNode = htmlPage.querySelector(contentSelector)
+    val title: DomNode = page.querySelector(titleSelector)
+    val content: DomNode = page.querySelector(contentSelector)
+
+    if (title == null)
+      log.error("No article title found on " + page.getUrl)
+    if (content == null)
+      log.error("No article content found on " + page.getUrl)
 
     new Article(
       if (title != null) title.asText() else "",
@@ -83,18 +98,16 @@ abstract class Scraper(analyser: ActorRef) extends Actor with Scrape with ActorL
   }
 
   def normalizeUrl(url: String): String =
-    if (url.startsWith("/")) this.url + url else url
+    if (url.startsWith("/")) this.startUrl + url else url
 }
 
 trait Scrape {
 
-  def url: String
+  def startUrl: String
 
   def linkSelector: String
 
   def titleSelector: String
 
   def contentSelector: String
-
-  def extractArticle(htmlPage: HtmlPage): Article
 }
