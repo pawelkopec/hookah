@@ -10,7 +10,6 @@ class ArticleAnalyser extends Actor with ActorLogging {
   override def receive: Receive = {
     //TODO
     case Analyse(article) =>
-      log.info("Found article \"" + article.title + "\": " +
-        article.content.substring(0, Math.min(20, article.content.length)) + "...")
+      log.info("Found article: " + article.toString)
   }
 }
